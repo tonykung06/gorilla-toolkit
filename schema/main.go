@@ -14,8 +14,12 @@ var decoder *schema.Decoder
 
 func basicModelBinding() {
 	form := map[string][]string{
-		"FirstName": []string{"Tony"},
-		"LastName":  []string{"Kung"},
+		"firstName":         []string{"Tony"},
+		"lastName":          []string{"Kung"},
+		"addresses.0.city":  []string{"Hong Kong"},
+		"addresses.0.state": []string{"N/A"},
+		"addresses.1.city":  []string{"Hong Kong 2"},
+		"addresses.1.state": []string{"N/A 2"},
 	}
 
 	var p Person
@@ -29,6 +33,12 @@ func basicModelBinding() {
 }
 
 type Person struct {
-	FirstName string
-	LastName  string
+	FirstName string    `schema:"firstName"`
+	LastName  string    `schema:"-"` //skip this field
+	Addresses []Address `schema:"addresses"`
+}
+
+type Address struct {
+	City  string `schema:"city"`
+	State string `schema:"state"`
 }
