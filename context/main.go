@@ -26,7 +26,6 @@ func purgeContext() {
 }
 
 func multipleValues() {
-
 	request1 := &http.Request{}
 	context.Set(request1, key, "foo")
 	context.Set(request1, "second", "bar")
