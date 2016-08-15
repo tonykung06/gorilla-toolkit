@@ -33,6 +33,15 @@ func startServer() {
 	server := rpc.NewServer()
 	server.RegisterCodec(json.NewCodec(), "application/json")
 	server.RegisterService(new(ArithService), "")
+
+	server.RegisterBeforeFunc(func(ri *rpc.RequestInfo) {
+		fmt.Println("before", ri)
+	})
+
+	server.RegisterAfterFunc(func(ri *rpc.RequestInfo) {
+		fmt.Println("after", ri)
+	})
+
 	http.Handle("/rpc", server)
 	httpServer := &http.Server{
 		Addr:    ":1234",
@@ -52,5 +61,6 @@ type ArithService struct{}
 
 func (a *ArithService) Add(req *http.Request, args *Args, reply *int) error {
 	*reply = args.A + args.B
+	fmt.Println("Calculating...")
 	return nil
 }
