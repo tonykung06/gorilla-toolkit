@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -12,10 +13,52 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+var analyticsConns []*websocket.Conn
+var logCh chan string
+
 func main() {
 	// basicWS()
 	// wsReaderWriter()
-	wsJSON()
+	// wsJSON()
+	dispatching()
+}
+
+func init() {
+	logCh = make(chan string)
+	go func() {
+		for msg := range logCh {
+			for _, c := range analyticsConns {
+				w, _ := c.NextWriter(websocket.TextMessage)
+				w.Write([]byte(time.Now().Format("2006-01-02 15:04:05")))
+				w.Write([]byte(" - " + msg))
+				w.Close()
+			}
+		}
+	}()
+}
+
+func dispatching() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("testing"))
+	})
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, _ := upgrader.Upgrade(w, r, nil)
+		analyticsConns = append(analyticsConns, conn)
+		go func(conn *websocket.Conn) {
+			for {
+				if _, _, err := conn.NextReader(); err != nil {
+					conn.Close()
+					for i := range analyticsConns {
+						if analyticsConns[i] == conn {
+							analyticsConns = append(analyticsConns[:i], analyticsConns[i+1:]...)
+						}
+					}
+					break
+				}
+			}
+		}(conn)
+	})
+	http.ListenAndServe(":3000", nil)
 }
 
 func wsReaderWriter() {
@@ -24,14 +67,14 @@ func wsReaderWriter() {
 	})
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, _ := upgrader.Upgrade(w, r, nil)
-		go func() {
+		go func(conn *websocket.Conn) {
 			for {
 				messageType, reader, _ := conn.NextReader()
 				writer, _ := conn.NextWriter(messageType)
 				io.Copy(writer, reader)
 				writer.Close()
 			}
-		}()
+		}(conn)
 	})
 	http.ListenAndServe(":3000", nil)
 }
@@ -63,13 +106,13 @@ func wsJSON() {
 	})
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, _ := upgrader.Upgrade(w, r, nil)
-		go func() {
+		go func(conn *websocket.Conn) {
 			for {
 				var author Author
 				conn.ReadJSON(&author)
 				conn.WriteMessage(websocket.TextMessage, []byte("Author's Name: "+author.Name))
 			}
-		}()
+		}(conn)
 	})
 	http.ListenAndServe(":3000", nil)
 
